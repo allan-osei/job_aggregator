@@ -1,103 +1,160 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, useEffect } from "react";
+
+interface Job {
+  id: string | number;
+  title: string;
+  company: string;
+  location: string;
+  type: string;
+  url: string;
+}
+
+// ✅ Default tokens per source for testing
+const DEFAULT_TOKENS: Record<string, string> = {
+  greenhouse: "stripe",
+  lever: "pattern",   // correct Lever slug
+  remotive: "stripe", // correct Remotive company
+};
+
+export default function HomePage() {
+  const [source, setSource] = useState<keyof typeof DEFAULT_TOKENS>("greenhouse");
+  const [token, setToken] = useState(DEFAULT_TOKENS["greenhouse"]);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [meta, setMeta] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchJobs = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams();
+      if (token) {
+        if (source === "lever") params.set("lever_tokens", token);
+        else if (source === "greenhouse") params.set("company", token);
+        else if (source === "remotive") params.set("remotive_company", token);
+      }
+      params.set("page", String(page));
+      params.set("limit", String(limit));
+
+      const res = await fetch(`/api/${source}/jobs?${params.toString()}`);
+      const data = await res.json();
+      console.log("API response:", data);
+
+      if (res.ok) {
+        setJobs(data.jobs || []);
+        setMeta(data.meta || {});
+      } else {
+        setError(data.error || "Unknown error");
+        setJobs([]);
+        setMeta(null);
+      }
+    } catch (err: any) {
+      setError(String(err));
+      setJobs([]);
+      setMeta(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Update token automatically when source changes
+  useEffect(() => {
+    setToken(DEFAULT_TOKENS[source]);
+    setPage(1); // reset page
+    fetchJobs();
+  }, [source]);
+
+  // ✅ Load initial jobs
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main style={{ padding: "2rem" }}>
+      <h1>Job Fetcher</h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      <div style={{ marginBottom: "1rem" }}>
+        <label>
+          Source:{" "}
+          <select
+            value={source}
+            onChange={(e) =>
+              setSource(e.target.value as keyof typeof DEFAULT_TOKENS)
+            }
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+            <option value="greenhouse">Greenhouse</option>
+            <option value="lever">Lever</option>
+            <option value="remotive">Remotive</option>
+          </select>
+        </label>
+      </div>
+
+      <div style={{ marginBottom: "1rem" }}>
+        <label>
+          Token / Company:{" "}
+          <input
+            type="text"
+            value={token}
+            onChange={(e) => setToken(e.target.value)}
+            placeholder="e.g. stripe, pattern"
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
+        </label>
+      </div>
+
+      <div style={{ marginBottom: "1rem" }}>
+        <label>
+          Page:{" "}
+          <input
+            type="number"
+            value={page}
+            onChange={(e) => setPage(Number(e.target.value))}
+            min={1}
           />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
+        </label>
+        <label style={{ marginLeft: "1rem" }}>
+          Limit:{" "}
+          <input
+            type="number"
+            value={limit}
+            onChange={(e) => setLimit(Number(e.target.value))}
+            min={1}
+            max={100}
           />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        </label>
+      </div>
+
+      <button onClick={fetchJobs} disabled={loading}>
+        {loading ? "Loading..." : "Fetch Jobs"}
+      </button>
+
+      {error && <p style={{ color: "red" }}>Error: {error}</p>}
+
+      <h2 style={{ marginTop: "2rem" }}>Results</h2>
+      <p>
+        Total: {meta?.total_jobs || 0} | Page: {meta?.page || 0}/
+        {meta?.total_pages || 0}
+      </p>
+
+      {jobs.length === 0 ? (
+        <p>No jobs found for this query.</p>
+      ) : (
+        <ul>
+          {jobs.map((job) => (
+            <li key={job.id}>
+              <a href={job.url} target="_blank" rel="noopener noreferrer">
+                {job.title}
+              </a>{" "}
+              - {job.company} ({job.location}) [{job.type}]
+            </li>
+          ))}
+        </ul>
+      )}
+    </main>
   );
 }
